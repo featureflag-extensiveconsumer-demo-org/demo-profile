@@ -2,8 +2,36 @@ import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 import { batchSize, contextForOneShot, contextForTraffic, isLoadProbe, probeSummary, scheduledEvaluations } from './traffic.mjs';
 
 const repository = 'demo-profile';
-const release = 'v002';
-const flags = ["demo-identity-passkeys","demo-legacy-profile","demo-order-history-v2","demo-profile-preferences"];
+const release = 'v004';
+// demo-identity-passkeys — Passkey sign-in alongside the existing password flow.
+async function identityPasskeys(client, context) {
+  return client.boolVariation('demo-identity-passkeys', context, false);
+}
+
+// demo-legacy-profile — Serves the previous profile rendering path while the replacement is finished.
+async function legacyProfile(client, context) {
+  return client.boolVariation('demo-legacy-profile', context, false);
+}
+
+// demo-order-history-v2 — Paginated order history with combined shipment views.
+async function orderHistoryV2(client, context) {
+  return client.boolVariation('demo-order-history-v2', context, false);
+}
+
+// demo-profile-preferences — Consolidated notification and privacy preferences in the profile.
+async function profilePreferences(client, context) {
+  return client.boolVariation('demo-profile-preferences', context, false);
+}
+
+// Every flag this release still owns, each at its own call site. Removing one deletes its function
+// and its entry here, and leaves a comment recording that the behaviour is now permanent.
+const features = [
+  { key: 'demo-identity-passkeys', evaluate: identityPasskeys },
+  { key: 'demo-legacy-profile', evaluate: legacyProfile },
+  { key: 'demo-order-history-v2', evaluate: orderHistoryV2 },
+  { key: 'demo-profile-preferences', evaluate: profilePreferences }
+];
+const flags = features.map((feature) => feature.key);
 const profiles = ['production', 'staging', 'test', 'dev'];
 const safeIdentifier = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 const integer = (value, minimum, maximum, label) => {
@@ -58,13 +86,13 @@ function wait(ms) {
 async function flushOutcome(client) {
   try { await client.flush(); return 'ok'; } catch { return 'failed'; }
 }
-async function evaluateOne(client, flag, context) { return client.boolVariation(flag, context, false); }
+async function evaluateOne(client, feature, context) { return feature.evaluate(client, context); }
 async function ordinaryBatch(client, options, firstIndex, openedAt) {
   const count = batchSize(options.profile, new Date()); let attempted = 0; const perFlag = {}; const clusters = {};
-  for (const flag of flags) perFlag[flag] = { true: 0, false: 0 };
+  for (const feature of features) perFlag[feature.key] = { true: 0, false: 0 };
   for (let item = 0; item < count && !stopRequested; item += 1) {
     const context = contextForTraffic(repository, options.profile, firstIndex + item, { generation: options.generation, contextPoolSize: options.contextPoolSize });
-    for (const flag of flags) { const value = await evaluateOne(client, flag, context); perFlag[flag][String(value)] += 1; attempted += 1; }
+    for (const feature of features) { const value = await evaluateOne(client, feature, context); perFlag[feature.key][String(value)] += 1; attempted += 1; }
     clusters[context.cluster.key] = (clusters[context.cluster.key] || 0) + 1;
   }
   const flush = await flushOutcome(client);
@@ -77,14 +105,14 @@ async function probeTraffic(client, options) {
   const variations = { true: 0, false: 0 }; const clusters = {};
   const emit = async (final = false) => {
     const elapsedMs = Math.max(1, Date.now() - started); const flush = await flushOutcome(client);
-    console.log(JSON.stringify(probeSummary({ repository, flag: flags[0], generation: options.generation, requestedRate: options.evaluationsPerHour, attempted, elapsedMs, variations, clusters, contextPoolSize: options.contextPoolSize, errors, sdkWarnings, sdkErrors, droppedEventWarnings, flush, final })));
+    console.log(JSON.stringify(probeSummary({ repository, flag: features[0].key, generation: options.generation, requestedRate: options.evaluationsPerHour, attempted, elapsedMs, variations, clusters, contextPoolSize: options.contextPoolSize, errors, sdkWarnings, sdkErrors, droppedEventWarnings, flush, final })));
     if (flush !== 'ok') throw new Error('SDK flush failed.');
   };
   while (!stopRequested) {
     const elapsedMs = Date.now() - started; const target = scheduledEvaluations(options.evaluationsPerHour, elapsedMs);
     while (attempted < target && !stopRequested) {
       const context = contextForTraffic(repository, options.profile, attempted, { generation: options.generation, contextPoolSize: options.contextPoolSize });
-      try { const value = await evaluateOne(client, flags[0], context); variations[String(value)] += 1; } catch { errors += 1; }
+      try { const value = await evaluateOne(client, features[0], context); variations[String(value)] += 1; } catch { errors += 1; }
       clusters[context.cluster.key] = (clusters[context.cluster.key] || 0) + 1; attempted += 1;
     }
     const now = Date.now();
@@ -97,11 +125,14 @@ async function probeTraffic(client, options) {
 async function main() {
   const sdkKey = process.env.LD_EVALUATION_SDK_KEY;
   if (!sdkKey) throw new Error('LD_EVALUATION_SDK_KEY is required.');
-  const options = optionsFrom(process.argv.slice(2)); const probe = options.traffic && isLoadProbe(repository, options.profile);
+  const options = optionsFrom(process.argv.slice(2));
+  // The probe is opt-in: a service name must never decide traffic shape on its own, because a
+  // single-flag rate probe covers one flag where an ordinary batch covers every flag the release owns.
+  const probe = options.traffic && isLoadProbe(repository, options.profile) && process.env.DEMO_LOAD_PROBE === 'true';
   const connect = () => LaunchDarkly.init(sdkKey, {
     capacity: 10000, flushInterval: 5, enableEventCompression: true,
     contextKeysCapacity: Math.min(options.contextPoolSize, 10000), contextKeysFlushInterval: 300, logger,
-    application: { id: repository, name: repository + ' synthetic evaluator', version: release, versionName: probe ? 'production-load-probe' : 'standard-traffic' }
+    application: { id: repository, name: repository, version: release, versionName: probe ? 'production-load-probe' : 'standard-traffic' }
   });
   const stop = () => { stopRequested = true; if (wake) wake(); };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);

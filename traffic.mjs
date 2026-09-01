@@ -118,6 +118,14 @@ export function isLoadProbe(repository, profile) { return repository === 'demo-o
 export function clusterFor(repository, profile, index) {
   const choices = clusters[profile];
   if (!choices || !knownService(repository) || !Number.isSafeInteger(index) || index < 0) throw new Error('Invalid cluster input.');
+  // A pinned evaluator represents one deployment on one cluster, which is what lets different
+  // clusters run different release tags and makes a code-removal drain fall in visible steps.
+  const pinned = process.env.DEMO_CLUSTER;
+  if (pinned) {
+    const fixed = choices.find((item) => item.key === pinned);
+    if (!fixed) throw new Error('DEMO_CLUSTER does not belong to this environment.');
+    const { weight: pinnedWeight, ...pinnedContext } = fixed; return pinnedContext;
+  }
   const bucket = (index * 17 + offsetFor(repository)) % 100; let boundary = 0;
   const selected = choices.find((item) => { boundary += item.weight; return bucket < boundary; });
   if (!selected || !clusterKey.test(selected.key)) throw new Error('Invalid cluster configuration.');
