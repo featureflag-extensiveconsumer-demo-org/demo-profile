@@ -2,5 +2,6 @@
   "scenarioId": "campaign-2026-08-16",
   "service": "demo-profile",
   "template": "nodejs",
-  "release": "v002"
+  "release": "v004",
+  "style": "behaviour"
 }
