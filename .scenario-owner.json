@@ -3,5 +3,8 @@
   "service": "demo-profile",
   "template": "nodejs",
   "release": "v004",
-  "style": "behaviour"
+  "style": "behaviour",
+  "retired": [
+    "demo-legacy-profile"
+  ]
 }
