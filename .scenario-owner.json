@@ -2,6 +2,9 @@
   "scenarioId": "campaign-2026-08-16",
   "service": "demo-profile",
   "template": "nodejs",
-  "release": "v004",
-  "style": "behaviour"
+  "release": "v005",
+  "style": "behaviour",
+  "retired": [
+    "demo-legacy-profile"
+  ]
 }
