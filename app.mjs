@@ -2,15 +2,10 @@ import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 import { batchSize, contextForOneShot, contextForTraffic, isLoadProbe, probeSummary, scheduledEvaluations } from './traffic.mjs';
 
 const repository = 'demo-profile';
-const release = 'v004';
+const release = 'v005';
 // demo-identity-passkeys — Passkey sign-in alongside the existing password flow.
 async function identityPasskeys(client, context) {
   return client.boolVariation('demo-identity-passkeys', context, false);
-}
-
-// demo-legacy-profile — Serves the previous profile rendering path while the replacement is finished.
-async function legacyProfile(client, context) {
-  return client.boolVariation('demo-legacy-profile', context, false);
 }
 
 // demo-order-history-v2 — Paginated order history with combined shipment views.
@@ -27,10 +22,10 @@ async function profilePreferences(client, context) {
 // and its entry here, and leaves a comment recording that the behaviour is now permanent.
 const features = [
   { key: 'demo-identity-passkeys', evaluate: identityPasskeys },
-  { key: 'demo-legacy-profile', evaluate: legacyProfile },
   { key: 'demo-order-history-v2', evaluate: orderHistoryV2 },
   { key: 'demo-profile-preferences', evaluate: profilePreferences }
 ];
+// Permanently enabled, flag removed: demo-legacy-profile (Serves the previous profile rendering path while the replacement is finished).
 const flags = features.map((feature) => feature.key);
 const profiles = ['production', 'staging', 'test', 'dev'];
 const safeIdentifier = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
