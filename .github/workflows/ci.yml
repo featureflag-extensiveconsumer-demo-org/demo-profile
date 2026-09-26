@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          package-manager-cache: false
+      - name: Check syntax
+        run: |
+          set -eu
+          for file in $(find . -name '*.mjs' -not -path './node_modules/*' | sort); do
+            echo "checking $file"
+            node --check "$file"
+          done
+      - name: Run tests
+        run: npm test
