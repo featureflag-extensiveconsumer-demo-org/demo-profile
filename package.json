@@ -2,9 +2,13 @@
   "name": "demo-profile",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "evaluate": "node app.mjs",
-    "traffic": "node app.mjs --traffic"
+    "traffic": "node app.mjs --traffic",
+    "test": "node --test"
   },
   "dependencies": {
     "@launchdarkly/node-server-sdk": "^9.0.0"
