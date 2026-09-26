@@ -16,7 +16,6 @@ Run `npm install`, set `LD_EVALUATION_SDK_KEY`, then use `npm run evaluate -- --
 
 | Key | What it decides | Fallback in code |
 | --- | --- | --- |
-| `demo-identity-passkeys` | the passkey challenge is offered alongside the password form | `false` |
 | `demo-order-history-v2` | the order tab pages the list and folds an order's shipments into one row | `false` |
 | `demo-profile-preferences` | notification and privacy settings render as one consolidated panel | `false` |
 
