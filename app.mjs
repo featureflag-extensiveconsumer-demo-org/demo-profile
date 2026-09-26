@@ -1,29 +1,36 @@
 import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 import { batchSize, contextForOneShot, contextForTraffic, isLoadProbe, probeSummary, scheduledEvaluations } from './traffic.mjs';
+import { IDENTITY_PASSKEYS, ORDER_HISTORY_V2, PROFILE_PREFERENCES } from './src/flags/keys.mjs';
+import { renderSignIn } from './src/identity/passkeys.mjs';
+import { renderOrderHistory } from './src/orders/order-history.mjs';
+import { renderPreferences } from './src/preferences/preferences.mjs';
 
 const repository = 'demo-profile';
 const release = 'v005';
 // demo-identity-passkeys — Passkey sign-in alongside the existing password flow.
-async function identityPasskeys(client, context) {
-  return client.boolVariation('demo-identity-passkeys', context, false);
+async function servePasskeyChallenge(client, context) {
+  const { passkeyOffered } = await renderSignIn(client, context);
+  return passkeyOffered;
 }
 
 // demo-order-history-v2 — Paginated order history with combined shipment views.
-async function orderHistoryV2(client, context) {
-  return client.boolVariation('demo-order-history-v2', context, false);
+async function serveOrderHistory(client, context) {
+  const { paginated } = await renderOrderHistory(client, context);
+  return paginated;
 }
 
 // demo-profile-preferences — Consolidated notification and privacy preferences in the profile.
-async function profilePreferences(client, context) {
-  return client.boolVariation('demo-profile-preferences', context, false);
+async function servePreferences(client, context) {
+  const { consolidated } = await renderPreferences(client, context);
+  return consolidated;
 }
 
 // Every flag this release still owns, each at its own call site. Removing one deletes its function
 // and its entry here, and leaves a comment recording that the behaviour is now permanent.
 const features = [
-  { key: 'demo-identity-passkeys', evaluate: identityPasskeys },
-  { key: 'demo-order-history-v2', evaluate: orderHistoryV2 },
-  { key: 'demo-profile-preferences', evaluate: profilePreferences }
+  { key: IDENTITY_PASSKEYS, evaluate: servePasskeyChallenge },
+  { key: ORDER_HISTORY_V2, evaluate: serveOrderHistory },
+  { key: PROFILE_PREFERENCES, evaluate: servePreferences }
 ];
 // Permanently enabled, flag removed: demo-legacy-profile (Serves the previous profile rendering path while the replacement is finished).
 const flags = features.map((feature) => feature.key);
@@ -138,7 +145,7 @@ async function main() {
         await client.waitForInitialization({ timeout: 10 });
         for (let index = 0; index < options.evaluations; index += 1) {
           const context = contextForOneShot(repository, options, index);
-          for (const flag of flags) console.log(JSON.stringify({ repository, release, flag, value: await evaluateOne(client, flag, context), context }));
+          for (const feature of features) console.log(JSON.stringify({ repository, release, flag: feature.key, value: await evaluateOne(client, feature, context), context }));
         }
       } finally { await client.flush(); await client.close(); }
     } else if (probe) {
