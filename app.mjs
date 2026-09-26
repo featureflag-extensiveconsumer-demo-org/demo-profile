@@ -1,18 +1,11 @@
 import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 import { batchSize, contextForOneShot, contextForTraffic, isLoadProbe, probeSummary, scheduledEvaluations } from './traffic.mjs';
-import { IDENTITY_PASSKEYS, ORDER_HISTORY_V2, PROFILE_PREFERENCES } from './src/flags/keys.mjs';
-import { renderSignIn } from './src/identity/passkeys.mjs';
+import { ORDER_HISTORY_V2, PROFILE_PREFERENCES } from './src/flags/keys.mjs';
 import { renderOrderHistory } from './src/orders/order-history.mjs';
 import { renderPreferences } from './src/preferences/preferences.mjs';
 
 const repository = 'demo-profile';
 const release = 'v005';
-// demo-identity-passkeys — Passkey sign-in alongside the existing password flow.
-async function servePasskeyChallenge(client, context) {
-  const { passkeyOffered } = await renderSignIn(client, context);
-  return passkeyOffered;
-}
-
 // demo-order-history-v2 — Paginated order history with combined shipment views.
 async function serveOrderHistory(client, context) {
   const { paginated } = await renderOrderHistory(client, context);
@@ -28,11 +21,11 @@ async function servePreferences(client, context) {
 // Every flag this release still owns, each at its own call site. Removing one deletes its function
 // and its entry here, and leaves a comment recording that the behaviour is now permanent.
 const features = [
-  { key: IDENTITY_PASSKEYS, evaluate: servePasskeyChallenge },
   { key: ORDER_HISTORY_V2, evaluate: serveOrderHistory },
   { key: PROFILE_PREFERENCES, evaluate: servePreferences }
 ];
 // Permanently enabled, flag removed: demo-legacy-profile (Serves the previous profile rendering path while the replacement is finished).
+// Permanently enabled, flag removed: demo-identity-passkeys (Passkey sign-in alongside the existing password flow).
 const flags = features.map((feature) => feature.key);
 const profiles = ['production', 'staging', 'test', 'dev'];
 const safeIdentifier = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
