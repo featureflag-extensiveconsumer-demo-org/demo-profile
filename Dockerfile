@@ -4,5 +4,6 @@ WORKDIR /app
 COPY package.json ./
 RUN npm install --omit=dev
 COPY app.mjs traffic.mjs ./
+COPY src ./src
 USER node
 CMD ["npm", "run", "traffic"]
