@@ -1,8 +1,7 @@
 import * as LaunchDarkly from '@launchdarkly/node-server-sdk';
 import { batchSize, contextForOneShot, contextForTraffic, isLoadProbe, probeSummary, scheduledEvaluations } from './traffic.mjs';
-import { IDENTITY_PASSKEYS, ORDER_HISTORY_V2, PROFILE_PREFERENCES } from './src/flags/keys.mjs';
+import { IDENTITY_PASSKEYS, PROFILE_PREFERENCES } from './src/flags/keys.mjs';
 import { renderSignIn } from './src/identity/passkeys.mjs';
-import { renderOrderHistory } from './src/orders/order-history.mjs';
 import { renderPreferences } from './src/preferences/preferences.mjs';
 
 const repository = 'demo-profile';
@@ -11,12 +10,6 @@ const release = 'v005';
 async function servePasskeyChallenge(client, context) {
   const { passkeyOffered } = await renderSignIn(client, context);
   return passkeyOffered;
-}
-
-// demo-order-history-v2 — Paginated order history with combined shipment views.
-async function serveOrderHistory(client, context) {
-  const { paginated } = await renderOrderHistory(client, context);
-  return paginated;
 }
 
 // demo-profile-preferences — Consolidated notification and privacy preferences in the profile.
@@ -29,10 +22,10 @@ async function servePreferences(client, context) {
 // and its entry here, and leaves a comment recording that the behaviour is now permanent.
 const features = [
   { key: IDENTITY_PASSKEYS, evaluate: servePasskeyChallenge },
-  { key: ORDER_HISTORY_V2, evaluate: serveOrderHistory },
   { key: PROFILE_PREFERENCES, evaluate: servePreferences }
 ];
 // Permanently enabled, flag removed: demo-legacy-profile (Serves the previous profile rendering path while the replacement is finished).
+// Permanently enabled, flag removed: demo-order-history-v2 (Paginated order history with combined shipment views).
 const flags = features.map((feature) => feature.key);
 const profiles = ['production', 'staging', 'test', 'dev'];
 const safeIdentifier = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
